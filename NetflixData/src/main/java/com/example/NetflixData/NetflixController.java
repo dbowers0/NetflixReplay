@@ -10,19 +10,28 @@ import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 
 
+
 @RestController
+@CrossOrigin
 public class NetflixController {
 
     @Autowired
     NetflixService netflixService;
 
-    @GetMapping("/file")
+    /*@GetMapping("/file")
     private ArrayList<Object> test(@RequestBody MultipartFile file) throws FileNotFoundException, ExecutionException, InterruptedException, ParseException {
         return netflixService.test(file);
+    }*/
+
+    @PostMapping("/file")
+    private ArrayList<Object> test(@RequestBody MultipartFile file) throws FileNotFoundException, ExecutionException, InterruptedException, ParseException {
+        return netflixService.test(file);
+
+
+        /*@GetMapping("/get")
+        private NetflixDatabase netflix() throws ExecutionException, InterruptedException {
+            return netflixService.netflix();*/
+        }
     }
 
-    @GetMapping("/get")
-    private NetflixDatabase netflix() throws ExecutionException, InterruptedException {
-        return netflixService.netflix();
-    }
-}
+

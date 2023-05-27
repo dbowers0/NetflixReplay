@@ -21,26 +21,34 @@ public class NetflixService {
     public ArrayList<Object> test (MultipartFile multipart) throws FileNotFoundException, ExecutionException, InterruptedException, ParseException {
         ArrayList<Object> arrayList = new ArrayList<>();
         ArrayList<CSVData> csvData = getCSV(multipart);
-        ArrayList<UserData> usersData = findTopShowsAndMovies(csvData);
-        usersData = setGenreAndWatchTime(usersData);
+        ArrayList<Object> usersDataAndRuntimeRanking = findTopShowsAndMovies(csvData);
+        HashMap<String, Integer> rankingOfEpisodes = (HashMap<String, Integer>) usersDataAndRuntimeRanking.get(1);
+
+        ArrayList<UserData> usersData = (ArrayList<UserData>) usersDataAndRuntimeRanking.get(0);
+        ArrayList<Object> results = setGenreAndWatchTime(usersData);
+        usersData = (ArrayList<UserData>) results.get(0);
+        HashMap<String, Integer> rankingOfShowsByWatchTime = (HashMap<String, Integer>) results.get(1);
         HashMap<String, Integer> genreRanking = rankGenres(usersData);
         HashMap<String, Integer> overallStatistics = calculateStatistics(usersData, csvData);
+
         arrayList.add(usersData);
         arrayList.add(genreRanking);
         arrayList.add(overallStatistics);
-        //System.out.println(usersData.size());
-        //arrayList.add(map);
+        arrayList.add(usersDataAndRuntimeRanking);
+        arrayList.add(rankingOfShowsByWatchTime);
 
         return arrayList;
     }
 
     private ArrayList<CSVData> getCSV(MultipartFile multipartFile) {
         ArrayList<CSVData> results = new ArrayList<>();
+        ArrayList<CSVData> temp = new ArrayList<>();
         BufferedReader br;
         String line;
         try {
             InputStream is = multipartFile.getInputStream();
             br = new BufferedReader(new InputStreamReader(is));
+            int count = 0;
             //get up to 2nd semicolon
             while ((line = br.readLine()) != null) {
                 CSVData csvData = new CSVData();
@@ -58,13 +66,18 @@ public class NetflixService {
                 movie = new String(bytes, StandardCharsets.UTF_8);
                 csvData.setTitle(movie);
                 results.add(csvData);
+                if(count < 30) {
+                    temp.add(csvData);
+                }
+                count++;
             }
         } catch (Exception e) {
             System.err.println(e.getMessage());
         }
-        return results;
+        //return results;
+        return temp;
     }
-    private ArrayList<UserData> findTopShowsAndMovies(ArrayList<CSVData> arrayList) {
+    private ArrayList<Object> findTopShowsAndMovies(ArrayList<CSVData> arrayList) {
         ArrayList<NetflixData> netflixDataArrayList = new ArrayList<>();
         HashMap<String, UserData> newMap = new HashMap<>();
         HashMap<String, Integer> map = new HashMap<>();
@@ -111,16 +124,18 @@ public class NetflixService {
                 count1++;
                 userData.setNumberEpisodes(String.valueOf(count1));
                 newMap.put(shows, userData);
+                map.put(shows, count1);
             } else {
                 UserData userData = new UserData();
                 userData.setFullname(movie);
                 userData.setName(shows);
                 userData.setNumberEpisodes(String.valueOf(1));
                 newMap.put(shows, userData);
+                map.put(shows, 1);
                 //map.put(shows, u)
             }
         }
-        //newMap = sortByValue(newMap);
+        map = sortByValue(map);
         ArrayList<String> alKeys = new ArrayList<String>(map.keySet());
         Collections.reverse(alKeys);
 
@@ -136,7 +151,10 @@ public class NetflixService {
             // System.out.println(userData1.getName());
         }
         //Collections.sort(arrayList1, Comparator.comparing(UserData::getTotalMinutes));
-        return arrayList1;
+        ArrayList<Object> objects = new ArrayList<>();
+        objects.add(arrayList1);
+        objects.add(map);
+        return objects;
     }
     public static HashMap<String, Integer> sortByValue(HashMap<String, Integer> hm) {
         // Create a list from elements of HashMap
@@ -161,9 +179,11 @@ public class NetflixService {
         return temp;
     }
 
-    private ArrayList<UserData> setGenreAndWatchTime(ArrayList<UserData> arrayList) throws ExecutionException, InterruptedException {
+    private ArrayList<Object> setGenreAndWatchTime(ArrayList<UserData> arrayList) throws ExecutionException, InterruptedException {
+        ArrayList<Object> fullResults = new ArrayList<>();
         String prefix = "";
         int count = 0;
+        HashMap<String, Integer> rankingOfMoviesByTotalWatchTime = new HashMap<>();
         ArrayList<UserData> results = new ArrayList<>();
         UserData userData = new UserData();
         for(int i = 0; i < arrayList.size(); i++) {
@@ -186,6 +206,7 @@ public class NetflixService {
                 int sum = Integer.parseInt(userData.getNumberEpisodes());
                 sum = sum * Integer.parseInt(netflixDatabase.getRuntime());
                 userData.setTotalMinutes(String.valueOf(sum));
+                rankingOfMoviesByTotalWatchTime.put(userData.getName(), sum);
                 String genres = netflixDatabase.getGenres();
 
                 ArrayList<String> genreList = new ArrayList<>();
@@ -211,8 +232,11 @@ public class NetflixService {
                 results.add(userData);
             }
         }
+        rankingOfMoviesByTotalWatchTime = sortByValue(rankingOfMoviesByTotalWatchTime);
         System.out.println(count);
-        return results;
+        fullResults.add(results);
+        fullResults.add(rankingOfMoviesByTotalWatchTime);
+        return fullResults;
     }
 
     private String genreSplit(String genre) {
